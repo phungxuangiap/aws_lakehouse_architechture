@@ -37,7 +37,6 @@ jobs:
           cd infra/core
           terraform init
 
-      # Bước kiểm tra (Plan) - Giúp bạn xem trước những gì sẽ thay đổi
       - name: Terraform Plan
         run: |
           cd infra/core
