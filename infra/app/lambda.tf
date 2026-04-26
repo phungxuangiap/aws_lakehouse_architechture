@@ -55,6 +55,7 @@ resource "aws_lambda_function" "data_pipeline_lambda" {
     variables = {
       ENV = "production"
       S3_BUCKET = var.s3_bucket_name
+      ECR_REPOSITORY_URL = var.ecr_repository_url
     }
   }
 }

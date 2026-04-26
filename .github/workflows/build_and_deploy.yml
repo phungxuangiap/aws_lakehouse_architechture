@@ -72,6 +72,7 @@ jobs:
       - name: Terraform Init & Apply
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          
         run: |
           cd infra/app
           terraform init

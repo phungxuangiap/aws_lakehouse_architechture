@@ -95,6 +95,7 @@ def upload_to_s3(game_list, player_activity_list):
         Body=json.dumps(player_activity_list, indent=2)
     )
     
+    print(f"Data uploaded successfully at {timestamp}")
 
 
 def lambda_handler(event, context):
