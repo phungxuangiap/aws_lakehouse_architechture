@@ -46,7 +46,7 @@ resource "aws_lambda_function" "data_pipeline_lambda" {
   package_type  = "Image"
   
   # Image URI được truyền vào từ biến image_tag trong Workflow
-  image_uri     = "${var.ecr_repository_url}:${var.image_tag}"
+  image_uri     = "${data.terraform_remote_state.core.outputs.ecr_repository_url}:${var.image_tag}"
 
   timeout       = 300 # 5 phút
   memory_size   = 512
@@ -54,8 +54,8 @@ resource "aws_lambda_function" "data_pipeline_lambda" {
   environment {
     variables = {
       ENV = "production"
-      S3_BUCKET = var.s3_bucket_name
-      ECR_REPOSITORY_URL = var.ecr_repository_url
+      S3_BUCKET = data.terraform_remote_state.core.outputs.s3_bucket_name
+      ECR_REPOSITORY_URL = data.terraform_remote_state.core.outputs.ecr_repository_url
     }
   }
 }
