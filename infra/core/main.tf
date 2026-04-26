@@ -46,11 +46,6 @@ resource "aws_s3_bucket_versioning" "datalake_versioning" {
   }
 }  
     
-# --- 3. EVENTBRIDGE (Event Bus) ---
-# Thường Lambda dùng Default Bus, nhưng tạo Custom Bus sẽ giúp bạn quản lý tốt hơn
-resource "aws_cloudwatch_event_bus" "pipeline_bus" {
-  name = "data-pipeline-bus"
-}
 
 # --- OUTPUTS (Để phần App có thể lấy thông tin) ---
 output "ecr_repository_url" {
@@ -61,8 +56,4 @@ output "ecr_repository_name" {
 }
 output "s3_bucket_name" {
   value = aws_s3_bucket.lakehouse.bucket
-}
-
-output "event_bus_name" {
-  value = aws_cloudwatch_event_bus.pipeline_bus.name
 }

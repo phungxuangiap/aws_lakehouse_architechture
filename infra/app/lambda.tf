@@ -65,13 +65,11 @@ resource "aws_cloudwatch_event_rule" "every_hour" {
   name                = "alex-trigger-every-hour"
   description         = "Kích hoạt Lambda xử lý data mỗi giờ"
   schedule_expression = "rate(1 hour)"
-  event_bus_name      = data.terraform_remote_state.core.outputs.event_bus_name
 }
 
 # Thiết lập mục tiêu (Target) cho EventBridge là con Lambda ở trên
 resource "aws_cloudwatch_event_target" "trigger_lambda" {
   rule           = aws_cloudwatch_event_rule.every_hour.name
-  event_bus_name = data.terraform_remote_state.core.outputs.event_bus_name
   target_id      = "DataPipelineLambda"
   arn            = aws_lambda_function.data_pipeline_lambda.arn
 }
