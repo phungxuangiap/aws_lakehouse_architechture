@@ -10,9 +10,9 @@ terraform {
 
   # Cấu hình backend để lưu state file trên S3, giúp team có thể làm việc chung và tránh xung đột
   backend "s3" {
-    bucket         = "alex-terraform-state" 
+    bucket         = "giap-n23dcat018-tfstate-080625" 
     key            = "core/terraform.tfstate"
-    region         = "us-east-1"
+    region         = "ap-southeast-2"
     encrypt        = true
   }
 }

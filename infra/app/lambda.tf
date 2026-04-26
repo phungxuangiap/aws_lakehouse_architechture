@@ -2,9 +2,9 @@
 data "terraform_remote_state" "core" {
   backend = "s3"
   config = {
-    bucket = "alex-terraform-state"
+    bucket = "giap-n23dcat018-tfstate-080625"
     key    = "core/terraform.tfstate"
-    region = "us-east-1"
+    region = "ap-southeast-2"
   }
 }
 
