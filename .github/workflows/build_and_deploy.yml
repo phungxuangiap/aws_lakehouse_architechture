@@ -73,7 +73,7 @@ jobs:
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
         run: |
-          cd infra/apps
+          cd infra/app
           terraform init
           # Truyền image_tag vào Terraform để nó cập nhật Lambda trỏ tới Image mới
           terraform apply -auto-approve -var="image_tag=$IMAGE_TAG"
