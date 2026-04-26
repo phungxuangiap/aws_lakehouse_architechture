@@ -9,7 +9,10 @@ on:
     branches: [ main ]
     paths:
       - 'infra/core/**'
-
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'infra/core/**'
 jobs:
   terraform-core:
     name: "Provision Core Infrastructure"
@@ -31,7 +34,6 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
-      # Chạy các lệnh Terraform tại thư mục infra/core
       - name: Terraform Init
         run: |
           cd infra/core
