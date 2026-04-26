@@ -86,7 +86,7 @@ def upload_to_s3(game_list, player_activity_list):
         Key=f"bronze/game_info_{timestamp}.json",
         Body=json.dumps(game_list, indent=2)
     )
-    
+    print(f"Game info uploaded successfully at {timestamp}")
     # Upload Player Activity
     print(f"Uploading player_activity to s3://{bucket_name}/bronze/")
     s3.put_object(
