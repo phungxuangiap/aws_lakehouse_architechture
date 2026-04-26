@@ -45,6 +45,21 @@ resource "aws_s3_bucket_versioning" "datalake_versioning" {
     status = "Enabled"
   }
 }  
+# --- 1. IAM ROLE CHO LAMBDA ---
+resource "aws_iam_role" "lambda_exec_role" {
+  name = "alex_lambda_ecr_exec_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "lambda.amazonaws.com"
+      }
+    }]
+  })
+}
     
 
 # --- OUTPUTS (Để phần App có thể lấy thông tin) ---
@@ -56,4 +71,10 @@ output "ecr_repository_name" {
 }
 output "s3_bucket_name" {
   value = aws_s3_bucket.lakehouse.bucket
+}
+output "lambda_exec_role_name" {
+  value = aws_iam_role.lambda_exec_role.name
+}
+output "lambda_exec_role_arn" {
+  value = aws_iam_role.lambda_exec_role.arn
 }

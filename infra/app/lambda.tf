@@ -8,31 +8,15 @@ data "terraform_remote_state" "core" {
   }
 }
 
-# --- 1. IAM ROLE CHO LAMBDA ---
-resource "aws_iam_role" "lambda_exec_role" {
-  name = "alex_lambda_ecr_exec_role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "lambda.amazonaws.com"
-      }
-    }]
-  })
-}
-
 # Gắn policy cơ bản để Lambda có thể đẩy log lên CloudWatch
 resource "aws_iam_role_policy_attachment" "lambda_logs" {
-  role       = aws_iam_role.lambda_exec_role.name
+  role       = data.terraform_remote_state.core.outputs.lambda_exec_role_name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 # QUAN TRỌNG: Quyền để Lambda có thể Pull Image từ ECR
 resource "aws_iam_role_policy_attachment" "lambda_ecr_pull" {
-  role       = aws_iam_role.lambda_exec_role.name
+  role       = data.terraform_remote_state.core.outputs.lambda_exec_role_name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole" 
   # Hoặc dùng AmazonEC2ContainerRegistryReadOnly nếu không chạy trong VPC
 }
@@ -40,7 +24,7 @@ resource "aws_iam_role_policy_attachment" "lambda_ecr_pull" {
 # --- 2. LAMBDA FUNCTION (Sử dụng Image từ ECR) ---
 resource "aws_lambda_function" "data_pipeline_lambda" {
   function_name = "alex-ingestion-worker"
-  role          = aws_iam_role.lambda_exec_role.arn
+  role          = data.terraform_remote_state.core.outputs.lambda_exec_role_arn
   
   # Chỉ định sử dụng Docker Image thay vì file .zip
   package_type  = "Image"
