@@ -63,19 +63,82 @@ def generate_mock_data(num_records=1000):
 import boto3
 import os
 
-def handler(event, context):
-    game_list, player_activity_list = generate_mock_data(1000)
+
+def upload_to_s3(game_list, player_activity_list):
+    """
+    Upload dữ liệu lên S3 (Bronze layer)
     
-    # Thay vì lưu file local, bạn có thể đẩy thẳng lên S3
-    # s3 = boto3.client('s3')
-    # bucket_name = os.environ.get('BUCKET_NAME', 'my-data-lake-bucket')
+    Environment variables:
+    - S3_BUCKET: Tên S3 bucket (được set từ lambda.tf)
+    """
+    s3 = boto3.client('s3')
+    bucket_name = os.environ.get('S3_BUCKET')
     
-    # s3.put_object(
-    #     Bucket=bucket_name,
-    #     Key=f"raw/game_info_{datetime.now().strftime('%Y%m%d%H%M')}.json",
-    #     Body=json.dumps(game_list)
-    # )
-    print(len(game_list))
-    print(len(player_activity_list))
+    if not bucket_name:
+        raise ValueError("S3_BUCKET environment variable not set")
+    
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    
+    # Upload Game Info
+    print(f"Uploading game_info to s3://{bucket_name}/bronze/")
+    s3.put_object(
+        Bucket=bucket_name,
+        Key=f"bronze/game_info_{timestamp}.json",
+        Body=json.dumps(game_list, indent=2)
+    )
+    
+    # Upload Player Activity
+    print(f"Uploading player_activity to s3://{bucket_name}/bronze/")
+    s3.put_object(
+        Bucket=bucket_name,
+        Key=f"bronze/player_activity_{timestamp}.json",
+        Body=json.dumps(player_activity_list, indent=2)
+    )
+    
+    print(f"Data uploaded successfully at {timestamp}")
+
+
+def lambda_handler(event, context):
+    """
+    Lambda handler - Entry point cho AWS Lambda Service
+    
+    Tên hàm PHẢI là lambda_handler (chỉ định trong Dockerfile)
+    """
+    try:
+        print("Starting Bronze Layer Ingestion...")
+        
+        # 1. Generate mock data
+        game_list, player_activity_list = generate_mock_data(1000)
+        print(f"Generated {len(game_list)} games and {len(player_activity_list)} activities")
+        
+        # 2. Upload to S3 (Bronze layer)
+        upload_to_s3(game_list, player_activity_list)
+        
+        # 3. Return success response
+        response = {
+            'statusCode': 200,
+            'body': json.dumps({
+                'message': 'Bronze layer ingestion successful!',
+                'games_count': len(game_list),
+                'activities_count': len(player_activity_list),
+                'timestamp': datetime.now().isoformat()
+            })
+        }
+        print(f"Response: {response}")
+        return response
+        
+    except Exception as e:
+        print(f"Error during ingestion: {str(e)}")
+        error_response = {
+            'statusCode': 500,
+            'body': json.dumps({
+                'message': 'Bronze layer ingestion failed!',
+                'error': str(e)
+            })
+        }
+        return error_response
+
+
+# For local testing
 if __name__ == "__main__":
-    handler(None, None)
+    lambda_handler(None, None)
