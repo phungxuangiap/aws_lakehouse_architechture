@@ -31,7 +31,6 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
-      # Chạy các lệnh Terraform tại thư mục infra/core
       - name: Terraform Init
         run: |
           cd infra/core
