@@ -56,7 +56,9 @@ resource "aws_cloudwatch_event_bus" "pipeline_bus" {
 output "ecr_repository_url" {
   value = aws_ecr_repository.data_pipeline_repo.repository_url
 }
-
+output "ecr_repository_name" {
+  value = aws_ecr_repository.data_pipeline_repo.name
+}
 output "s3_bucket_name" {
   value = aws_s3_bucket.lakehouse.bucket
 }
