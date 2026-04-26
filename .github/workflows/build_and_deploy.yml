@@ -1,6 +1,8 @@
 name: Deploy Data Pipeline
 
 on:
+  # Cho phép kích hoạt thủ công từ giao diện GitHub Actions
+  workflow_dispatch:
   push:
     branches: [ main ]
     paths:
