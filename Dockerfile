@@ -1,6 +1,16 @@
 FROM python:3.10-slim
+
+# Thiết lập thư mục làm việc bên trong container
 WORKDIR /app
-COPY requirements.txt .
+
+# Copy file requirements từ thư mục src/ vào thư mục hiện tại của container (.)
+COPY src/requirements.txt .
+
+# Cài đặt thư viện
 RUN pip install --no-cache-dir -r requirements.txt
-COPY ingestion.py .
+
+# Copy file code từ thư mục src/ vào thư mục hiện tại của container
+COPY src/ingestion.py .
+
+# Chạy script
 CMD ["python", "ingestion.py"]
