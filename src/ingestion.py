@@ -136,8 +136,3 @@ def lambda_handler(event, context):
             })
         }
         return error_response
-
-
-# For local testing
-if __name__ == "__main__":
-    lambda_handler(None, None)
