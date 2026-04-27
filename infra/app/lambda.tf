@@ -77,7 +77,6 @@ resource "aws_cloudwatch_event_rule" "every_hour" {
   schedule_expression = "rate(1 hour)"
 }
 
-# Thiết lập mục tiêu (Target) cho EventBridge là con Lambda ở trên
 resource "aws_cloudwatch_event_target" "trigger_lambda" {
   rule           = aws_cloudwatch_event_rule.every_hour.name
   target_id      = "DataPipelineLambda"
