@@ -7,13 +7,13 @@ on:
     branches: [ main ]
     paths:
       - 'src/**'           # Thay đổi code logic (Ingestion/ETL)
-      - 'infra/apps/**'    # Thay đổi cấu hình Lambda/Trigger
+      - 'infra/app/**'    # Thay đổi cấu hình Lambda/Trigger
       - 'Dockerfile'
   pull_request:
     branches: [ main ]
     paths:
       - 'src/**'
-      - 'infra/apps/**'
+      - 'infra/app/**'
       - 'Dockerfile'
 jobs:
   # JOB 1: Đóng gói và đẩy Code lên ECR
