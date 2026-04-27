@@ -1,3 +1,19 @@
+terraform {
+  required_version = ">= 1.0.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+
+  backend "s3" {
+    bucket         = "giap-n23dcat018-tfstate-080625" 
+    key            = "lambda/terraform.tfstate" # KHÁC với core/
+    region         = "ap-southeast-2"
+    encrypt        = true
+  }
+}
 # Đọc outputs từ core infrastructure
 data "terraform_remote_state" "core" {
   backend = "s3"
