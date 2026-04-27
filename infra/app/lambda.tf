@@ -20,6 +20,32 @@ resource "aws_iam_role_policy_attachment" "lambda_ecr_pull" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole" 
   # Hoặc dùng AmazonEC2ContainerRegistryReadOnly nếu không chạy trong VPC
 }
+resource "aws_iam_policy" "lambda_s3_policy" {
+  name        = "alex_lambda_s3_write_policy"
+  description = "Cho phép ghi dữ liệu vào Lakehouse S3"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action   = ["s3:PutObject"]
+        Effect   = "Allow"
+        Resource = "arn:aws:s3:::alex-lakehouse-storage-2026/*"
+      },
+      {
+        # Nên thêm quyền ghi Log để bạn còn xem được log trên CloudWatch
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Effect   = "Allow"
+        Resource = "arn:aws:logs:*:*:*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_attach" {
+  role       = data.terraform_remote_state.core.outputs.lambda_exec_role_name
+  policy_arn = aws_iam_policy.lambda_s3_policy.arn
+}
 
 # --- 2. LAMBDA FUNCTION (Sử dụng Image từ ECR) ---
 resource "aws_lambda_function" "data_pipeline_lambda" {
