@@ -61,6 +61,28 @@ resource "aws_iam_role" "lambda_exec_role" {
   })
 }
     
+resource "aws_iam_policy" "lambda_s3_policy" {
+  name        = "alex_lambda_s3_write_policy"
+  description = "Cho phép ghi dữ liệu vào Lakehouse S3"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action   = ["s3:PutObject"]
+        Effect   = "Allow"
+        Resource = "arn:aws:s3:::alex-lakehouse-storage-2026/*"
+      },
+      {
+        # Nên thêm quyền ghi Log để bạn còn xem được log trên CloudWatch
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Effect   = "Allow"
+        Resource = "arn:aws:logs:*:*:*"
+      }
+    ]
+  })
+}
+
 
 # --- OUTPUTS (Để phần App có thể lấy thông tin) ---
 output "ecr_repository_url" {
@@ -77,4 +99,10 @@ output "lambda_exec_role_name" {
 }
 output "lambda_exec_role_arn" {
   value = aws_iam_role.lambda_exec_role.arn
+}
+output "lambda_s3_policy_arn" {
+  value = aws_iam_policy.lambda_s3_policy.arn
+}
+output "lambda_s3_policy_name" {
+  value = aws_iam_policy.lambda_s3_policy.name
 }
