@@ -46,6 +46,26 @@ jobs:
 
       # Thực thi tạo hạ tầng
       - name: Terraform Apply
+        id: apply
         run: |
           cd infra/core
+          terraform init
           terraform apply -auto-approve
+          echo "PRIVATE_KEY=$(terraform output -raw private_key_pem)" >> $GITHUB_OUTPUT
+          echo "PUBLIC_IP=$(terraform output -raw ec2_public_ip)" >> $GITHUB_OUTPUT
+
+      - name: Update GitHub Secrets
+        uses: hmanzur/actions-set-secret@v2.0.0
+        with:
+          name: 'SERVER_SSH_KEY'
+          value: ${{ steps.apply.outputs.PRIVATE_KEY }}
+          repository: ${{ github.repository }}
+          token: ${{ secrets.MY_GITHUB_TOKEN }} 
+
+      - name: Update Remote Host
+        uses: hmanzur/actions-set-secret@v2.0.0
+        with:
+          name: 'REMOTE_HOST'
+          value: ${{ steps.apply.outputs.PUBLIC_IP }}
+          repository: ${{ github.repository }}
+          token: ${{ secrets.MY_GITHUB_TOKEN }}

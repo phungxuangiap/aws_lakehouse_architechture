@@ -64,6 +64,33 @@ resource "aws_lambda_function" "data_pipeline_lambda" {
     }
   }
 }
+resource "aws_glue_job" "landing_to_bronze" {
+  name     = "alex-ingestion-transform"
+  role_arn = data.terraform_remote_state.core.outputs.lambda_exec_role_arn
+  glue_version = "4.0"
+
+  command {
+    # Đường dẫn file script trên S3
+    script_location = "s3://${data.terraform_remote_state.core.outputs.s3_bucket_name}/scripts/transform_to_bronze.py"
+    python_version  = "3"
+  }
+
+  default_arguments = {
+    "--job-language"        = "python"
+    "--enable-metrics"      = "true"
+    "--enable-continuous-cloudwatch-log" = "true"
+    # Truyền tham số bucket để script sử dụng
+    "--S3_BUCKET"           = data.terraform_remote_state.core.outputs.s3_bucket_name
+  }
+
+  number_of_workers = 2
+  worker_type       = "G.1X"
+}
+
+resource "aws_iam_role_policy_attachment" "glue_service_role" {
+  role       = data.terraform_remote_state.core.outputs.lambda_exec_role_name
+  policy_arn = "arn:aws:policy/service-role/AWSGlueServiceRole"
+}
 
 # --- 3. EVENTBRIDGE (Trigger theo lịch trình, ví dụ: mỗi 1 tiếng) ---
 resource "aws_cloudwatch_event_rule" "every_hour" {

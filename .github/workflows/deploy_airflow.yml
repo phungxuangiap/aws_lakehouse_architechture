@@ -1,0 +1,43 @@
+name: CD_AIRFLOW
+
+on:
+    push: 
+        branches: 
+            - main
+        paths: 
+            - 'src/pipelines/**'
+            - 'infra/core/**'
+            - 'Dockerfile'
+    pull_request:
+        branches: 
+            - main
+        paths: 
+            - 'src/pipelines/**'
+            - 'infra/core/**'
+            - 'Dockerfile'
+    workflow_dispatch: 
+jobs: 
+    deploy_to_ec2:
+        name: deploy_to_EC2
+        runs-on: ubuntu-latest
+        steps: 
+            - name: Checkout repo 
+              uses: actions/checkout@v2
+
+            - name: Deploy to server
+              uses: easingthemes/ssh-deploy@main
+              with:
+                SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+                REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+                # manual settting on Github Secrets. Default value: ubuntu
+                REMOTE_USER: ${{ secrets.REMOTE_USER }}
+                SOURCE: "/src/pipelines/"
+                TARGET: "/home/ubuntu/airflow"
+                SCRIPT_AFTER: |
+                    cd airflow 
+                    echo -e "AIRFLOW_UID=$(id -u)\nAIRFLOW_GID=0" > .env
+                    sudo docker build -t apache-airflow-amazon:aws-dorian .
+                    sudo docker compose up airflow-init
+                    sudo docker compose up -d  
+
+

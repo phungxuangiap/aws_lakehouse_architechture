@@ -66,7 +66,7 @@ import os
 
 def upload_to_s3(game_list, player_activity_list):
     """
-    Upload dữ liệu lên S3 (Bronze layer)
+    Upload dữ liệu lên S3 (Landing layer)
     
     Environment variables:
     - S3_BUCKET: Tên S3 bucket (được set từ lambda.tf)
@@ -80,18 +80,18 @@ def upload_to_s3(game_list, player_activity_list):
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     
     # Upload Game Info
-    print(f"Uploading game_info to s3://{bucket_name}/bronze/")
+    print(f"Uploading game_info to s3://{bucket_name}/landing/")
     s3.put_object(
         Bucket=bucket_name,
-        Key=f"bronze/game_info_{timestamp}.json",
+        Key=f"landing/games/game_info_{timestamp}.json",
         Body=json.dumps(game_list, indent=2)
     )
     print(f"Game info uploaded successfully at {timestamp}")
     # Upload Player Activity
-    print(f"Uploading player_activity to s3://{bucket_name}/bronze/")
+    print(f"Uploading player_activity to s3://{bucket_name}/landing/")
     s3.put_object(
         Bucket=bucket_name,
-        Key=f"bronze/player_activity_{timestamp}.json",
+        Key=f"landing/players/player_activity_{timestamp}.json",
         Body=json.dumps(player_activity_list, indent=2)
     )
     

@@ -55,7 +55,7 @@ resource "aws_iam_role" "lambda_exec_role" {
       Action = "sts:AssumeRole"
       Effect = "Allow"
       Principal = {
-        Service = "lambda.amazonaws.com"
+        Service = ["lambda.amazonaws.com", "glue.amazonaws.com"]
       }
     }]
   })
@@ -82,27 +82,57 @@ resource "aws_iam_policy" "lambda_s3_policy" {
     ]
   })
 }
+resource "tls_private_key" "custom_key" {
+    algorithm = "RSA"
+    rsa_bits  = 4096
+}
 
 
-# --- OUTPUTS (Để phần App có thể lấy thông tin) ---
-output "ecr_repository_url" {
-  value = aws_ecr_repository.data_pipeline_repo.repository_url
+resource "aws_key_pair" "generated_key" {
+    key_name   = var.key_name
+    public_key = tls_private_key.custom_key.public_key_openssh
 }
-output "ecr_repository_name" {
-  value = aws_ecr_repository.data_pipeline_repo.name
+
+
+
+resource "aws_instance" "airflow_ec2" {
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = var.airflow_instance_type
+
+  key_name        = aws_key_pair.generated_key.key_name
+  vpc_security_group_ids = [aws_security_group.airflow_security_group.id]
+
+  tags = {
+    Name = "airflow_glue"
+  }
+
+  user_data = <<EOF
+#!/bin/bash
+
+echo "-------------------------START SETUP---------------------------"
+sudo apt-get -y update
+
+sudo apt-get -y install \
+ca-certificates \
+curl \
+gnupg \
+lsb-release
+
+sudo apt -y install unzip
+
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+echo \
+"deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get -y update
+sudo apt-get -y install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo chmod 666 /var/run/docker.sock
+
+echo "-------------------------END SETUP---------------------------"
+
+EOF
+
 }
-output "s3_bucket_name" {
-  value = aws_s3_bucket.lakehouse.bucket
-}
-output "lambda_exec_role_name" {
-  value = aws_iam_role.lambda_exec_role.name
-}
-output "lambda_exec_role_arn" {
-  value = aws_iam_role.lambda_exec_role.arn
-}
-output "lambda_s3_policy_arn" {
-  value = aws_iam_policy.lambda_s3_policy.arn
-}
-output "lambda_s3_policy_name" {
-  value = aws_iam_policy.lambda_s3_policy.name
-}
+
