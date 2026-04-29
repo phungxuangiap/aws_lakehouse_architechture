@@ -10,6 +10,6 @@ variable "key_name" {
 }
 variable "airflow_instance_type" {
   type        = string
-  default     = "t3.micro"
-  description = "Airflow instance typ ec2"
+  default     = "t3.medium"
+  description = "Airflow instance type ec2"
 }
