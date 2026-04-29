@@ -114,6 +114,7 @@ jobs:
                   export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
                   export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
                   export AWS_DEFAULT_REGION=ap-southeast-2
+                  export FULL_IMAGE_NAME="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest"
                   
                   aws ecr get-login-password --region $AWS_DEFAULT_REGION | sudo docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
                   
@@ -122,13 +123,13 @@ jobs:
                   echo "AIRFLOW_GID=0" >> .env
                   
                   # 5. Khởi động Airflow
-                  sudo docker compose pull
-                  sudo docker compose up -d
+                  sudo -E docker compose pull
+                  sudo -E docker compose up -d
                   
                   # 6. Đợi và tạo User
                   echo "Waiting for services to start..."
                   sleep 30
-                  sudo docker exec airflow-webserver airflow users create \
+                  sudo -E docker exec airflow-webserver airflow users create \
                         --username admin \
                         --firstname Giap \
                         --lastname Phung \
