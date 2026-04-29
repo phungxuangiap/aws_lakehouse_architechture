@@ -24,7 +24,6 @@ data "terraform_remote_state" "core" {
   }
 }
 
-# Gắn policy cơ bản để Lambda có thể đẩy log lên CloudWatch
 resource "aws_iam_role_policy_attachment" "lambda_logs" {
   role       = data.terraform_remote_state.core.outputs.lambda_exec_role_name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
