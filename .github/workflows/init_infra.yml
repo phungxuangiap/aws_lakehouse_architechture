@@ -1,10 +1,7 @@
 name: Terraform Core Infra
 
 on:
-  # Cho phép kích hoạt thủ công từ giao diện GitHub Actions
   workflow_dispatch:
-  
-  # Tự động chạy khi có thay đổi trong thư mục core trên nhánh main
   push:
     branches: [ main ]
     paths:
@@ -13,6 +10,7 @@ on:
     branches: [ main ]
     paths:
       - 'infra/core/**'
+
 jobs:
   terraform-core:
     name: "Provision Core Infrastructure"
@@ -22,51 +20,45 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Xác thực quyền với AWS
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-southeast-2 # Thay bằng region của bạn
+          aws-region: ap-southeast-2
 
-      # Cài đặt công cụ Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false # Tắt wrapper để tránh chèn log debug vào stdout
 
-      - name: Terraform Init
-        run: |
-          cd infra/core
-          terraform init
-
-      - name: Terraform Plan
-        run: |
-          cd infra/core
-          terraform plan
-
-      # Thực thi tạo hạ tầng
-      - name: Terraform Apply
+      - name: Terraform Init & Apply
         id: apply
         run: |
           cd infra/core
           terraform init
           terraform apply -auto-approve -no-color
-          {
-            echo "PRIVATE_KEY<<EOF"
-            terraform output -raw ec2_private_key
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-          echo "PUBLIC_IP=$(terraform output -raw ec2_public_ip)" >> $GITHUB_OUTPUT
 
-      - name: Update GitHub Secrets
+          # 1. Lấy Private Key (Dùng EOF để xử lý nhiều dòng)
+          echo "PRIVATE_KEY<<EOF" >> $GITHUB_OUTPUT
+          terraform output -raw ec2_private_key >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT # Đảm bảo có dòng trống cuối key
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # 2. Lấy Public IP (Lọc sạch chỉ lấy số và dấu chấm)
+          IP=$(terraform output -raw ec2_public_ip | grep -E '^[0-9.]+$' | head -n 1)
+          echo "PUBLIC_IP=$IP" >> $GITHUB_OUTPUT
+
+      - name: Update GitHub Secrets (SSH Key)
         uses: hmanzur/actions-set-secret@v2.0.0
         with:
           name: 'SERVER_SSH_KEY'
+          # Quan trọng: Dùng output từ bước apply phía trên
           value: ${{ steps.apply.outputs.PRIVATE_KEY }}
           repository: ${{ github.repository }}
           token: ${{ secrets.MY_GITHUB_TOKEN }} 
 
-      - name: Update Remote Host
+      - name: Update Remote Host Secret
         uses: hmanzur/actions-set-secret@v2.0.0
         with:
           name: 'REMOTE_HOST'
