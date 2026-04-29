@@ -95,7 +95,6 @@ resource "aws_iam_role_policy_attachment" "glue_service_role" {
   policy_arn = data.aws_iam_policy.glue_service.arn
 }
 
-# --- 3. EVENTBRIDGE (Trigger theo lịch trình, ví dụ: mỗi 1 tiếng) ---
 resource "aws_cloudwatch_event_rule" "every_hour" {
   name                = "alex-trigger-every-hour"
   description         = "Kích hoạt Lambda xử lý data mỗi giờ"

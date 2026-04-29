@@ -88,14 +88,17 @@ jobs:
               REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
               REMOTE_USER: "ubuntu"
               SOURCE: "src/pipelines/docker-compose.yaml" 
-              TARGET: "/home/ubuntu/airflow"
+              TARGET: "/home/ubuntu/airflow/"
               SCRIPT_AFTER: |
+                  # Lệnh này đảm bảo folder tồn tại trước khi cd
+                  mkdir -p /home/ubuntu/airflow 
                   cd /home/ubuntu/airflow
                   
                   export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
                   export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
                   export AWS_DEFAULT_REGION=ap-southeast-2
                   
+                  # Cố gắng login, nếu aws cli đã cài thì lệnh này mới chạy được
                   aws ecr get-login-password --region $AWS_DEFAULT_REGION | sudo docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
                   
                   echo "AIRFLOW_UID=$(id -u)" > .env
