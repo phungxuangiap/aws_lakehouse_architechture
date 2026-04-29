@@ -17,6 +17,7 @@ terraform {
   }
 }
 
+
 provider "aws" {
   region = var.aws_region
 }
@@ -81,6 +82,52 @@ resource "aws_iam_policy" "lambda_s3_policy" {
       }
     ]
   })
+}
+resource "aws_security_group" "airflow_security_group" {
+  name        = "airflow_security_group"
+  description = "Security group to allow ssh and airflow"
+
+  ingress {
+    description = "Inbound SCP"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+
+  ingress {
+    description = "Inbound SCP"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+}
+
+
+data "aws_ami" "ubuntu" {
+    most_recent = true
+
+    filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+    }
+
+    filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+    }
+
+    owners = ["099720109477"] # Canonical
 }
 resource "tls_private_key" "custom_key" {
     algorithm = "RSA"
