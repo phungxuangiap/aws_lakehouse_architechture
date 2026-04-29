@@ -86,11 +86,15 @@ resource "aws_glue_job" "landing_to_bronze" {
   worker_type       = "G.1X"
 }
 
+data "aws_iam_policy" "glue_service" {
+  name = "AWSGlueServiceRole"
+}
+
 resource "aws_iam_role_policy_attachment" "glue_service_role" {
   role       = data.terraform_remote_state.core.outputs.lambda_exec_role_name
-  # Thêm dấu : sau chữ policy
-  policy_arn = "arn:aws:policy:iam::aws:policy/service-role/AWSGlueServiceRole"
+  policy_arn = data.aws_iam_policy.glue_service.arn
 }
+
 # --- 3. EVENTBRIDGE (Trigger theo lịch trình, ví dụ: mỗi 1 tiếng) ---
 resource "aws_cloudwatch_event_rule" "every_hour" {
   name                = "alex-trigger-every-hour"
