@@ -88,7 +88,7 @@ jobs:
               REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
               REMOTE_USER: "ubuntu"
               SOURCE: "src/pipelines/docker-compose.yaml" 
-              TARGET: "/home/ubuntu/airflow"
+              TARGET: "/home/ubuntu/airflow/docker-compose.yaml"
               SCRIPT_AFTER: |
                   cd /home/ubuntu/airflow
                   
