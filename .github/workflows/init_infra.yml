@@ -51,7 +51,11 @@ jobs:
           cd infra/core
           terraform init
           terraform apply -auto-approve -no-color
-          echo "PRIVATE_KEY=$(terraform output -raw private_key_pem)" >> $GITHUB_OUTPUT
+          {
+            echo "PRIVATE_KEY<<EOF"
+            terraform output -raw ec2_private_key
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
           echo "PUBLIC_IP=$(terraform output -raw ec2_public_ip)" >> $GITHUB_OUTPUT
 
       - name: Update GitHub Secrets
