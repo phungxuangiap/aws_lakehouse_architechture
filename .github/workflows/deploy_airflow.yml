@@ -84,6 +84,7 @@ jobs:
               SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
               REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
               REMOTE_USER: ubuntu
+              remoteUser: ubuntu
               SOURCE: "docker-compose.yaml" 
               TARGET: "/home/ubuntu/airflow"
               SCRIPT_AFTER: |
