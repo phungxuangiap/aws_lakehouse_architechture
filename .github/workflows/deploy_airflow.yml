@@ -91,18 +91,13 @@ jobs:
               TARGET: "/home/ubuntu/airflow/"
               ARGS: "-avz --mkpath"
               SCRIPT_AFTER: |
-                  # 1. Tự động cài đặt AWS CLI nếu chưa có
+                  # 1. Đảm bảo AWS CLI có sẵn
                   if ! command -v aws &> /dev/null; then
-                      echo "AWS CLI not found. Installing..."
-                      sudo apt-get update
-                      sudo apt-get install unzip -y
+                      sudo apt-get update && sudo apt-get install unzip -y
                       curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-                      unzip -o awscliv2.zip
-                      sudo ./aws/install --update
-                      rm -rf awscliv2.zip aws
+                      unzip -o awscliv2.zip && sudo ./aws/install --update
                   fi
 
-                  # 2. Đảm bảo di chuyển vào đúng thư mục
                   cd /home/ubuntu/airflow
                   
                   if [ -d "src/pipelines" ]; then
@@ -110,23 +105,24 @@ jobs:
                     rm -rf src
                   fi
                   
-                  # 3. Login ECR
+                  # 2. Thiết lập biến môi trường
                   export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
                   export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
                   export AWS_DEFAULT_REGION=ap-southeast-2
                   export FULL_IMAGE_NAME="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest"
                   
+                  # 3. LOGIN QUAN TRỌNG: Login cho cả user hiện tại và root
+                  aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
                   aws ecr get-login-password --region $AWS_DEFAULT_REGION | sudo docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
                   
-                  # 4. Cấu hình môi trường
                   echo "AIRFLOW_UID=$(id -u)" > .env
                   echo "AIRFLOW_GID=0" >> .env
                   
-                  # 5. Khởi động Airflow
+                  # 4. PULL VỚI QUYỀN ƯU TIÊN
+                  # Sử dụng sudo -E để mang theo biến FULL_IMAGE_NAME vào Docker Compose
                   sudo -E docker compose pull
                   sudo -E docker compose up -d
                   
-                  # 6. Đợi và tạo User
                   echo "Waiting for services to start..."
                   sleep 30
                   sudo -E docker exec airflow-webserver airflow users create \
