@@ -88,19 +88,44 @@ jobs:
               REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
               REMOTE_USER: "ubuntu"
               SOURCE: "src/pipelines/docker-compose.yaml" 
-              TARGET: "/home/ubuntu/airflow/docker-compose.yaml"
+              # Sử dụng thư mục cha, không chỉ định tên file trực tiếp ở TARGET để rsync không bị nhầm lẫn
+              TARGET: "/home/ubuntu/airflow/"
+              # Thêm --mkpath để rsync tự tạo folder nếu trên server chưa có
+              ARGS: "-avz --mkpath"
               SCRIPT_AFTER: |
+                  # 1. Đảm bảo di chuyển vào đúng thư mục
                   cd /home/ubuntu/airflow
                   
+                  # 2. Xử lý trường hợp rsync copy kèm theo cấu trúc thư mục src/pipelines/
+                  if [ -d "src/pipelines" ]; then
+                    echo "Moving docker-compose from subfolder to root..."
+                    mv src/pipelines/docker-compose.yaml .
+                    rm -rf src
+                  fi
+                  
+                  # 3. Thiết lập biến môi trường AWS để login ECR ngay trên EC2
                   export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
                   export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
                   export AWS_DEFAULT_REGION=ap-southeast-2
                   
-                  # Cố gắng login, nếu aws cli đã cài thì lệnh này mới chạy được
+                  # 4. Login Docker vào ECR
                   aws ecr get-login-password --region $AWS_DEFAULT_REGION | sudo docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
                   
+                  # 5. Cấu hình User ID cho Airflow (Tránh lỗi Permission trên Linux)
                   echo "AIRFLOW_UID=$(id -u)" > .env
                   echo "AIRFLOW_GID=0" >> .env
                   
+                  # 6. Pull image mới nhất và khởi động
                   sudo docker compose pull
                   sudo docker compose up -d
+                  
+                  # 7. Đợi một chút để DB sẵn sàng rồi tạo User (Nếu chưa có)
+                  echo "Waiting for services to start..."
+                  sleep 30
+                  sudo docker exec airflow-webserver airflow users create \
+                        --username admin \
+                        --firstname Giap \
+                        --lastname Phung \
+                        --role Admin \
+                        --email admin@example.com \
+                        --password admin || echo "User already exists or failed to create."
