@@ -76,18 +76,17 @@ jobs:
     deploy_to_ec2:
       name: deploy_to_EC2
       runs-on: ubuntu-latest
-      needs: build-and-push # Đảm bảo image đã lên ECR mới chạy bước này
+      needs: build-and-push
       steps: 
-      # Lấy quyền Login Docker vào ECR
-          - name: Login to Amazon ECR
-            id: login-ecr
-            uses: aws-actions/amazon-ecr-login@v1
+          - name: Checkout Code # Cần để có file docker-compose.yaml gửi sang EC2
+            uses: actions/checkout@v3
+
           - name: Deploy to server via SSH
             uses: easingthemes/ssh-deploy@main
             with:
-              REMOTE_USER: "ubuntu"
               SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
               REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+              REMOTE_USER: "ubuntu"
               SOURCE: "docker-compose.yaml" 
               TARGET: "/home/ubuntu/airflow"
               SCRIPT_AFTER: |
@@ -97,20 +96,10 @@ jobs:
                   export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
                   export AWS_DEFAULT_REGION=ap-southeast-2
                   
-                  aws ecr get-login-password --region $AWS_DEFAULT_REGION | sudo docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+                  aws ecr get-login-password --region $AWS_DEFAULT_REGION | sudo docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
                   
                   echo "AIRFLOW_UID=$(id -u)" > .env
                   echo "AIRFLOW_GID=0" >> .env
                   
                   sudo docker compose pull
                   sudo docker compose up -d
-                  sudo sleep 30 
-                  sudo docker exec airflow-webserver airflow users create \
-                        --username admin \
-                        --firstname Giap \
-                        --lastname Phung \
-                        --role Admin \
-                        --email your-email@example.com \
-                        --password admin
-
-
