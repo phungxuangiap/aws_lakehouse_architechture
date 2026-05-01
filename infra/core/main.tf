@@ -64,13 +64,13 @@ resource "aws_iam_role" "lambda_exec_role" {
 resource "aws_s3_object" "delta_jar_core" {
   bucket = aws_s3_bucket.lakehouse.id
   key    = "delta_jar/delta-core_2.12-2.1.0.jar"
-  source = "../delta_jar/delta-core_2.12-2.1.0.jar"
+  source = "../../delta_jar/delta-core_2.12-2.1.0.jar"
 }
 
 resource "aws_s3_object" "delta_jar_storage" {
   bucket = aws_s3_bucket.lakehouse.id
   key    = "delta_jar/delta-storage-2.1.0.jar"
-  source = "../delta_jar/delta-storage-2.1.0.jar"
+  source = "../../delta_jar/delta-storage-2.1.0.jar"
 }
 
     
