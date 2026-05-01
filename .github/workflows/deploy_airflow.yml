@@ -79,6 +79,7 @@ jobs:
               SOURCE: "src/pipelines/" 
               TARGET: "/home/ubuntu/airflow/"
               ARGS: "-avz --delete --mkpath"
+              EXCLUDE: "/logs/, /__pycache__/, /.env, /plugins/, /config/"
               SCRIPT_AFTER: |
                   cd /home/ubuntu/airflow
                   
