@@ -51,10 +51,8 @@ jobs:
             ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
           run: |
             cd src/pipelines
-            # Dùng github.sha làm tag để đảm bảo tính duy nhất
             docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }} .
             docker tag $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }} $ECR_REGISTRY/$ECR_REPOSITORY:latest
-            
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
@@ -70,6 +68,17 @@ jobs:
           - name: Checkout Code 
             uses: actions/checkout@v3
 
+          - name: Pre-deploy Fix Permissions
+            uses: appleboy/ssh-action@master
+            with:
+              host: ${{ secrets.REMOTE_HOST }}
+              username: "ubuntu"
+              key: ${{ secrets.SERVER_SSH_KEY }}
+              script: |
+                # Trả lại quyền cho user ubuntu để rsync có thể ghi đè file
+                sudo chown -R ubuntu:ubuntu /home/ubuntu/airflow/dags /home/ubuntu/airflow/scripts || true
+                sudo chmod -R 755 /home/ubuntu/airflow/dags /home/ubuntu/airflow/scripts || true
+
           - name: Deploy to server via SSH
             uses: easingthemes/ssh-deploy@main
             with:
@@ -78,46 +87,38 @@ jobs:
               REMOTE_USER: "ubuntu"
               SOURCE: "src/pipelines/" 
               TARGET: "/home/ubuntu/airflow/"
-              ARGS: "-avz --mkpath"
+              ARGS: "-rlz --delete --mkpath"
               EXCLUDE: "/logs/, /__pycache__/, /.env, /plugins/, /config/"
               SCRIPT_AFTER: |
                   cd /home/ubuntu/airflow
                   
-                  # 1. Cấu hình xác thực AWS
-                  export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
-                  export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-                  export AWS_DEFAULT_REGION=ap-southeast-2
+                  # 1. Xác thực ECR
+                  aws ecr get-login-password --region ap-southeast-2 | sudo docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
                   
-                  aws ecr get-login-password --region $AWS_DEFAULT_REGION | sudo docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
-                  
-                  # 2. FIX QUAN TRỌNG: Cấu hình UID Airflow chuẩn (50000)
-                  # Thay vì id -u (thường là 1000), ta ép 50000 để khớp quyền ghi logs
-                  echo "AIRFLOW_UID=50000" > .env
-                  echo "AIRFLOW_GID=0" >> .env
-                  echo "FULL_IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest" >> .env
+                  # 2. Cấu hình .env
+                  echo "AIRFLOW_UID=50000" | sudo tee .env
+                  echo "AIRFLOW_GID=0" | sudo tee -a .env
+                  echo "FULL_IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest" | sudo tee -a .env
 
-                  # 3. FIX QUYỀN HẠN THƯ MỤC TRÊN HOST
-                  # Tạo sẵn các thư mục mount nếu chưa có và gán cho user 50000
+                  # 3. FIX QUYỀN HẠN CHO CONTAINER (UID 50000)
                   sudo mkdir -p logs dags plugins config scripts
                   sudo chown -R 50000:0 logs dags plugins config scripts
                   sudo chmod -R 775 logs dags plugins config scripts
                   
-                  # 4. Pull image mới nếu có thay đổi hệ thống
-                  if [ "${{ needs.check_changes.outputs.run_build }}" == "true" ]; then
-                    echo "System change detected. Refreshing containers..."
-                    sudo -E docker compose down --remove-orphans
-                    sudo -E docker compose pull
+                  # 4. Quản lý Docker Compose (Dùng docker compose thay vì docker-compose)
+                  if [ "${{ needs.check_changes.outputs.run_build }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+                    sudo docker compose pull
+                    sudo docker compose up -d --remove-orphans
+                  else
+                    sudo docker compose up -d
                   fi
                   
-                  # 5. Khởi động hệ thống
-                  sudo -E docker compose up -d
+                  # 5. Dọn dẹp
+                  sudo docker image prune -f
                   
-                  # Đợi hệ thống ổn định và kiểm tra log nhanh
+                  # 6. Khởi tạo Admin
                   sleep 20
-                  sudo docker ps
-                  
-                  # 6. Khởi tạo User Admin (Nếu chưa có)
-                  sudo -E docker exec airflow-airflow-webserver-1 airflow users create \
+                  sudo docker exec airflow-airflow-webserver-1 airflow users create \
                         --username admin \
                         --firstname Giap \
                         --lastname Phung \
