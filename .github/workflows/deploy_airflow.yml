@@ -2,55 +2,41 @@ name: CD_AIRFLOW
 
 on:
     push: 
-        branches: 
-            - main
-        paths: 
-            - 'src/pipelines/**'
-            - 'infra/core/**'
-            - 'Dockerfile'
-    pull_request:
-        branches: 
-            - main
+        branches: [ main ]
         paths: 
             - 'src/pipelines/**'
             - 'infra/core/**'
             - 'Dockerfile'
     workflow_dispatch: 
+
 jobs: 
-    # build-airflow:
-    #   runs-on: ubuntu-latest
-    #   steps:
-    #     - uses: actions/checkout@v3
-        
-    #     - name: Build Airflow Image
-    #       run: |
-    #         cd src/pipelines
-    #         docker build -t apache-airflow-amazon:aws-dorian .
-        
-    #     - name: Push to ECR
-    #       run: |
-    #         aws ecr get-login-password --region ap-southeast-2 | \
-    #         docker login --username AWS --password-stdin $ECR_URI
-            
-    #         docker tag apache-airflow-amazon:aws-dorian \
-    #           $ECR_URI/apache-airflow-amazon:aws-dorian
-    #         docker push $ECR_URI/apache-airflow-amazon:aws-dorian
-    build-and-push:
+    check_changes:
       runs-on: ubuntu-latest
       outputs:
-        image_tag: ${{ steps.vars.outputs.sha_short }}
+        run_build: ${{ steps.filter.outputs.system }}
+      steps:
+        - uses: actions/checkout@v3
+        - uses: dorny/paths-filter@v2
+          id: filter
+          with:
+            filters: |
+              system:
+                - 'Dockerfile'
+                - 'src/pipelines/requirements.txt'
+                - 'src/pipelines/docker-compose.yaml'
+                - 'infra/core/**'
+
+    build-and-push:
+      runs-on: ubuntu-latest
+      needs: [check_changes]
+      if: needs.check_changes.outputs.run_build == 'true' || github.event_name == 'workflow_dispatch'
       steps:
         - name: Checkout Code
           uses: actions/checkout@v3
 
-        - name: Set Image Tag
-          id: vars
-          run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
         - name: Configure AWS credentials
           uses: aws-actions/configure-aws-credentials@v2
           with:
-            # Lưu ý: Sửa lỗi typo AWS_ACCEdeplSS thành AWS_ACCESS_KEY_ID
             aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
             aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
             aws-region: ap-southeast-2 
@@ -63,20 +49,23 @@ jobs:
           env:
             ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
             ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
-            IMAGE_TAG: ${{ steps.vars.outputs.sha_short }}
           run: |
             cd src/pipelines
+            # Dùng github.sha làm tag để đảm bảo tính duy nhất
+            docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }} .
+            docker tag $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }} $ECR_REGISTRY/$ECR_REPOSITORY:latest
             
-            docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-            
-            docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-            
-            docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+            docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
     deploy_to_ec2:
       name: deploy_to_EC2
       runs-on: ubuntu-latest
-      needs: build-and-push
+      needs: [check_changes, build-and-push]
+      if: |
+        always() && 
+        needs.check_changes.result == 'success' && 
+        (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped')
       steps: 
           - name: Checkout Code 
             uses: actions/checkout@v3
@@ -91,44 +80,36 @@ jobs:
               TARGET: "/home/ubuntu/airflow/"
               ARGS: "-avz --delete --mkpath"
               SCRIPT_AFTER: |
-                  # 1. Đảm bảo AWS CLI có sẵn
-                  if ! command -v aws &> /dev/null; then
-                      sudo apt-get update && sudo apt-get install unzip -y
-                      curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-                      unzip -o awscliv2.zip && sudo ./aws/install --update
-                  fi
-
                   cd /home/ubuntu/airflow
                   
+                  # Sắp xếp folder
                   if [ -d "src/pipelines" ]; then
                     mv src/pipelines/docker-compose.yaml .
                     rm -rf src
                   fi
                   
-                  # 2. Thiết lập biến môi trường
                   export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
                   export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
                   export AWS_DEFAULT_REGION=ap-southeast-2
-                  export FULL_IMAGE_NAME="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest"
                   
-                  # 3. LOGIN QUAN TRỌNG: Login cho cả user hiện tại và root
-                  aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
                   aws ecr get-login-password --region $AWS_DEFAULT_REGION | sudo docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
                   
                   echo "AIRFLOW_UID=$(id -u)" > .env
                   echo "AIRFLOW_GID=0" >> .env
                   
-                  # 4. PULL VỚI QUYỀN ƯU TIÊN
-                  # Sử dụng sudo -E để mang theo biến FULL_IMAGE_NAME vào Docker Compose
-                  sudo -E docker compose pull
+                  # CHỈ PULL KHI CÓ BIẾN ĐỘNG HỆ THỐNG
+                  if [ "${{ needs.check_changes.outputs.run_build }}" == "true" ]; then
+                    echo "System changed detected. Pulling new image..."
+                    sudo -E docker compose pull
+                  fi
+                  
                   sudo -E docker compose up -d
                   
-                  echo "Waiting for services to start..."
-                  sleep 30
+                  sleep 15
                   sudo -E docker exec airflow-webserver airflow users create \
                         --username admin \
                         --firstname Giap \
                         --lastname Phung \
                         --role Admin \
                         --email admin@example.com \
-                        --password admin || echo "User already exists."
+                        --password admin || echo "Admin user already exists."
