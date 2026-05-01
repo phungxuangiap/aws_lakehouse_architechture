@@ -69,7 +69,7 @@ jobs:
           aws-region: ap-southeast-2
       - name: Upload Glue Script to S3
         run: |
-          aws s3 cp src/pipelines/dags/transform_to_bronze.py s3://alex-lakehouse-storage-2026/scripts/transform_to_bronze.py
+          aws s3 cp src/pipelines/scripts/transform_to_bronze.py s3://alex-lakehouse-storage-2026/scripts/transform_to_bronze.py
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
