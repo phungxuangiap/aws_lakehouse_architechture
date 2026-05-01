@@ -95,33 +95,28 @@ jobs:
                   # 1. Xác thực ECR
                   aws ecr get-login-password --region ap-southeast-2 | sudo docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
                   
-                  # 2. Cấu hình .env
+                  # 2. Cấu hình .env (Sử dụng tee -a để ghi tiếp vào file)
                   echo "AIRFLOW_UID=50000" | sudo tee .env
                   echo "AIRFLOW_GID=0" | sudo tee -a .env
                   echo "FULL_IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest" | sudo tee -a .env
+                  echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" | sudo tee -a .env
+                  echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" | sudo tee -a .env
+                  echo "AWS_DEFAULT_REGION=ap-southeast-2" | sudo tee -a .env
 
                   # 3. FIX QUYỀN HẠN CHO CONTAINER (UID 50000)
                   sudo mkdir -p logs dags plugins config scripts
                   sudo chown -R 50000:0 logs dags plugins config scripts
                   sudo chmod -R 775 logs dags plugins config scripts
                   
-                  # 4. Quản lý Docker Compose (Dùng docker compose thay vì docker-compose)
+                  # 4. Quản lý Docker Compose
+                  # Lưu ý: Mỗi khi thay đổi .env, bạn nên restart container để nhận biến mới
                   if [ "${{ needs.check_changes.outputs.run_build }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
                     sudo docker compose pull
                     sudo docker compose up -d --remove-orphans
                   else
+                    # Nếu chỉ đổi .env (credentials), vẫn cần up -d để container nhận biến môi trường mới
                     sudo docker compose up -d
                   fi
                   
                   # 5. Dọn dẹp
                   sudo docker image prune -f
-                  
-                  # 6. Khởi tạo Admin
-                  sleep 20
-                  sudo docker exec airflow-airflow-webserver-1 airflow users create \
-                        --username admin \
-                        --firstname Giap \
-                        --lastname Phung \
-                        --role Admin \
-                        --email giap.phung@student.ptithcm.edu.vn \
-                        --password admin || echo "Admin user exists."
