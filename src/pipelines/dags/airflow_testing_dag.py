@@ -1,7 +1,7 @@
 from airflow.decorators import dag
 from airflow.providers.amazon.aws.operators.glue import GlueJobOperator
 from datetime import datetime
-glue_bucket = "vg-lakehouse-glue"
+glue_bucket = "alex-lakehouse-storage-2026"
 bronze_glue_job = "bronze-layer-job"
 bronze_glue_job_key = "transform_to_bronze.py"
 silver_glue_job = "silver-layer-job"
@@ -9,7 +9,7 @@ silver_glue_job_key = "transform_to_silver.py"
 gold_glue_job = "gold-layer-job"
 gold_glue_job_key = "transform_to_gold.py"
 glue_iam_role = "vg-glue-role"
-delta_path = "s3://vg-lakehouse/delta_jar/delta-core_2.12-2.1.0.jar,s3://vg-lakehouse/delta_jar/delta-storage-2.1.0.jar"
+delta_path = "s3://alex-lakehouse-storage-2026/delta_jar/delta-core_2.12-2.1.0.jar,s3://alex-lakehouse-storage-2026/delta_jar/delta-storage-2.1.0.jar"
 glue_args = {
     "GlueVersion": "4.0",
     "WorkerType": "G.1X",
@@ -33,7 +33,7 @@ def lakehouse_dag():
     submit_glue_bronze_job = GlueJobOperator(
         task_id="bronze-layer-job",
         job_name="linkedin_transform_bronze",
-        script_location=f"s3://{glue_bucket}/{bronze_glue_job_key}",
+        script_location=f"s3://{glue_bucket}/scripts/{bronze_glue_job_key}",
         # Sử dụng tên Role từ Terraform
         iam_role_name="vg-glue-role",
         # Áp dụng bộ cấu hình args ở trên
