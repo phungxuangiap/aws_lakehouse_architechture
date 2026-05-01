@@ -1,5 +1,5 @@
-import subprocess
-from airflow.decorators import dag, task
+from airflow.decorators import dag
+from airflow.providers.amazon.aws.operators.glue import GlueJobOperator
 from datetime import datetime
 
 @dag(
@@ -10,15 +10,14 @@ from datetime import datetime
 )
 def script_test_flow():
 
-    @task
-    def transform_data_to_bronze():
-        script_path = "/opt/airflow/scripts/transform_to_bronze.py"
-        result = subprocess.run(['python3', script_path], capture_output=True, text=True)
-        
-        if result.returncode != 0:
-            raise Exception(f"Failed to transform data to bronze layer: {result.stderr}")
-        else:
-            print(f"Data transformation to bronze layer completed successfully: {result.stdout}")
-    transform_data_to_bronze()
+    # Thay vì dùng subprocess, ta dùng Operator chuyên dụng của AWS
+    transform_data_to_bronze = GlueJobOperator(
+        task_id="transform_data_to_bronze",
+        job_name="linkedin_transform_bronze", # Tên Job đã tạo trên AWS Glue
+        script_location="s3://your-bucket-name/scripts/transform_to_bronze.py", # Script phải nằm trên S3
+        aws_conn_id="aws_default",
+        region_name="ap-southeast-2",
+        wait_for_completion=True
+    )
 
 script_dag = script_test_flow()
