@@ -24,7 +24,7 @@ glue_args = {
 
 glue_script_directory = "/opt/airflow/dags/glue-spark"
 @dag(
-    dag_id='run_script_functional',
+    dag_id='lakehouse_dag_v01',
     schedule=None,
     start_date=datetime(2026, 1, 1),
     catchup=False
