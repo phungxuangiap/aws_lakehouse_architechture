@@ -78,7 +78,7 @@ jobs:
               REMOTE_USER: "ubuntu"
               SOURCE: "src/pipelines/" 
               TARGET: "/home/ubuntu/airflow/"
-              ARGS: "-avz --delete --mkpath"
+              ARGS: "-avz --mkpath"
               EXCLUDE: "/logs/, /__pycache__/, /.env, /plugins/, /config/"
               SCRIPT_AFTER: |
                   cd /home/ubuntu/airflow
