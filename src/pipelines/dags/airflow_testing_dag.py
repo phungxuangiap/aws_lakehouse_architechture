@@ -11,16 +11,14 @@ from datetime import datetime
 def script_test_flow():
 
     @task
-    def call_external_file():
+    def transform_data_to_bronze():
         script_path = "/opt/airflow/scripts/transform_to_bronze.py"
         result = subprocess.run(['python3', script_path], capture_output=True, text=True)
         
-        print("Output của script:")
-        print(result.stdout) # In ra màn hình log của Airflow
-        
         if result.returncode != 0:
-            raise Exception(f"Script lỗi: {result.stderr}")
-
-    call_external_file()
+            raise Exception(f"Failed to transform data to bronze layer: {result.stderr}")
+        else:
+            print(f"Data transformation to bronze layer completed successfully: {result.stdout}")
+    transform_data_to_bronze()
 
 script_dag = script_test_flow()
