@@ -86,14 +86,52 @@ resource "aws_glue_job" "landing_to_bronze" {
   worker_type       = "G.1X"
 }
 
-data "aws_iam_policy" "glue_service" {
-  name = "AWSGlueServiceRole"
+# Glue databases for the lakehouse
+resource "aws_glue_catalog_database" "bronze_database" {
+  name = var.bronze_glue_database
+  location_uri = var.s3_location_bronze_glue_database
 }
 
-resource "aws_iam_role_policy_attachment" "glue_service_role" {
-  role       = data.terraform_remote_state.core.outputs.lambda_exec_role_name
-  policy_arn = data.aws_iam_policy.glue_service.arn
+resource "aws_glue_catalog_database" "silver_database" {
+  name = var.silver_glue_database
+  location_uri = var.s3_location_silver_glue_database
 }
+
+resource "aws_glue_catalog_database" "gold_database" {
+  name = var.gold_glue_database
+  location_uri = var.s3_location_gold_glue_database
+}
+
+
+# Glue IAM role 
+resource "aws_iam_role" "glue_iam_role" {
+  name = var.glue_iam_role_name
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "glue.amazonaws.com"
+        }
+      },
+    ]
+  })
+}
+
+# 2. Gắn chính sách S3 Full Access
+resource "aws_iam_role_policy_attachment" "glue_s3_full_access" {
+  role       = aws_iam_role.glue_iam_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+}
+
+# 3. Gắn chính sách AWS Glue Service Role
+resource "aws_iam_role_policy_attachment" "glue_service_role_attach" {
+  role       = aws_iam_role.glue_iam_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
+}
+
 
 resource "aws_cloudwatch_event_rule" "every_hour" {
   name                = "alex-trigger-every-hour"
