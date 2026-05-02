@@ -141,24 +141,50 @@ data "aws_ami" "ubuntu" {
 
     owners = ["099720109477"] # Canonical
 }
+
+# --- 1. TẠO QUYỀN CHO EC2 (BẮT BUỘC ĐỂ FIX LỖI NOCREDENTIALS) ---
+resource "aws_iam_role" "ec2_role" {
+  name = "ec2_airflow_ecr_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecr_read" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+resource "aws_iam_instance_profile" "ec2_profile" {
+  name = "ec2_airflow_instance_profile"
+  role = aws_iam_role.ec2_role.name
+}
+
+# --- 2. TẠO KEY PAIR ---
 resource "tls_private_key" "custom_key" {
     algorithm = "RSA"
     rsa_bits  = 4096
 }
-
 
 resource "aws_key_pair" "generated_key" {
     key_name   = var.key_name
     public_key = tls_private_key.custom_key.public_key_openssh
 }
 
-
-
+# --- 3. KHỞI TẠO EC2 ---
 resource "aws_instance" "airflow_ec2" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = var.airflow_instance_type
 
-  # THÊM DÒNG NÀY ĐỂ CÓ IP TRUY CẬP TỪ INTERNET
+  # Gán danh tính (Role) cho máy
+  iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
+
   associate_public_ip_address = true 
 
   key_name               = aws_key_pair.generated_key.key_name
@@ -179,9 +205,12 @@ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o 
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt-get -y update
 sudo apt-get -y install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# Cấp quyền docker cho user ubuntu (để GitHub Action không cần sudo quá nhiều)
+sudo usermod -aG docker ubuntu
 sudo chmod 666 /var/run/docker.sock
 
-# CÀI ĐẶT AWS CLI (Để GitHub Action có thể Login ECR sau này)
+# CÀI ĐẶT AWS CLI V2
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 sudo ./aws/install

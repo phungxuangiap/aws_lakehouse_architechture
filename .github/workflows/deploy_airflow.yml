@@ -57,7 +57,7 @@ jobs:
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
     deploy_to_ec2:
-      name: deploy_to_EC2
+      name: Deploy to EC2
       runs-on: ubuntu-latest
       needs: [check_changes, build-and-push]
       if: |
@@ -65,58 +65,59 @@ jobs:
         needs.check_changes.result == 'success' && 
         (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped')
       steps: 
-          - name: Checkout Code 
-            uses: actions/checkout@v3
+        - name: Checkout Code 
+          uses: actions/checkout@v3
 
-          - name: Pre-deploy Fix Permissions
-            uses: appleboy/ssh-action@master
-            with:
-              host: ${{ secrets.REMOTE_HOST }}
-              username: "ubuntu"
-              key: ${{ secrets.SERVER_SSH_KEY }}
-              script: |
-                # Trả lại quyền cho user ubuntu để rsync có thể ghi đè file
-                sudo chown -R ubuntu:ubuntu /home/ubuntu/airflow/dags /home/ubuntu/airflow/scripts || true
-                sudo chmod -R 755 /home/ubuntu/airflow/dags /home/ubuntu/airflow/scripts || true
+        - name: Pre-deploy Fix Permissions
+          uses: appleboy/ssh-action@master
+          with:
+            host: ${{ secrets.REMOTE_HOST }}
+            username: "ubuntu"
+            key: ${{ secrets.SERVER_SSH_KEY }}
+            script: |
+              # Đảm bảo thư mục gốc tồn tại và user ubuntu có quyền sở hữu để rsync không lỗi
+              sudo mkdir -p /home/ubuntu/airflow
+              sudo chown -R ubuntu:ubuntu /home/ubuntu/airflow
 
-          - name: Deploy to server via SSH
-            uses: easingthemes/ssh-deploy@main
-            with:
-              SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
-              REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
-              REMOTE_USER: "ubuntu"
-              SOURCE: "src/pipelines/" 
-              TARGET: "/home/ubuntu/airflow/"
-              ARGS: "-rlz --delete --mkpath"
-              EXCLUDE: "/logs/, /__pycache__/, /.env, /plugins/, /config/"
-              SCRIPT_AFTER: |
-                  cd /home/ubuntu/airflow
-                  
-                  # 1. Xác thực ECR
-                  aws ecr get-login-password --region ap-southeast-2 | sudo docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
-                  
-                  # 2. Cấu hình .env (Sử dụng tee -a để ghi tiếp vào file)
-                  echo "AIRFLOW_UID=50000" | sudo tee .env
-                  echo "AIRFLOW_GID=0" | sudo tee -a .env
-                  echo "FULL_IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest" | sudo tee -a .env
-                  echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" | sudo tee -a .env
-                  echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" | sudo tee -a .env
-                  echo "AWS_DEFAULT_REGION=ap-southeast-2" | sudo tee -a .env
+        - name: Deploy to server via SSH
+          uses: easingthemes/ssh-deploy@main
+          with:
+            SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+            REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+            REMOTE_USER: "ubuntu"
+            SOURCE: "src/pipelines/" 
+            TARGET: "/home/ubuntu/airflow/"
+            ARGS: "-rlz --delete --mkpath"
+            EXCLUDE: "/logs/, /__pycache__/, /.env, /plugins/, /config/"
+            SCRIPT_AFTER: |
+                set -e
+                cd /home/ubuntu/airflow
+                
+                # 1. Xác thực ECR (Dùng quyền từ IAM Role của EC2 - Không cần export Key)
+                aws ecr get-login-password --region ap-southeast-2 | sudo docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
+                
+                # 2. Cấu hình .env
+                # Lưu ý: FULL_IMAGE_NAME giúp docker-compose biết image nào cần pull
+                cat <<EOT | sudo tee .env
+                AIRFLOW_UID=50000
+                AIRFLOW_GID=0
+                FULL_IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
+                AWS_DEFAULT_REGION=ap-southeast-2
+                EOT
 
-                  # 3. FIX QUYỀN HẠN CHO CONTAINER (UID 50000)
-                  sudo mkdir -p logs dags plugins config scripts
-                  sudo chown -R 50000:0 logs dags plugins config scripts
-                  sudo chmod -R 775 logs dags plugins config scripts
-                  
-                  # 4. Quản lý Docker Compose
-                  # Lưu ý: Mỗi khi thay đổi .env, bạn nên restart container để nhận biến mới
-                  if [ "${{ needs.check_changes.outputs.run_build }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-                    sudo docker compose pull
-                    sudo docker compose up -d --remove-orphans
-                  else
-                    # Nếu chỉ đổi .env (credentials), vẫn cần up -d để container nhận biến môi trường mới
-                    sudo docker compose up -d
-                  fi
-                  
-                  # 5. Dọn dẹp
-                  sudo docker image prune -f
+                # 3. Quản lý quyền hạn cho các folder Airflow (UID 50000 của Airflow user)
+                sudo mkdir -p logs dags plugins config scripts
+                sudo chown -R 50000:0 logs dags plugins config scripts
+                sudo chmod -R 775 logs dags plugins config scripts
+                
+                # 4. Triển khai Docker Compose
+                # --force-recreate để chắc chắn container nhận biến môi trường mới nếu có thay đổi
+                if [ "${{ needs.check_changes.outputs.run_build }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+                  sudo docker compose pull
+                  sudo docker compose up -d --remove-orphans --force-recreate
+                else
+                  sudo docker compose up -d --force-recreate
+                fi
+                
+                # 5. Dọn dẹp các Image cũ để tránh tràn ổ cứng
+                sudo docker image prune -f
