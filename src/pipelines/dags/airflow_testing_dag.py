@@ -28,7 +28,7 @@ GLUE_CONF = {
 }
 
 @dag(
-    dag_id='linkedin_lakehouse_pipeline_v2',
+    dag_id='linkedin_lakehouse_pipeline_v3',
     schedule=None,
     start_date=datetime(2026, 1, 1),
     catchup=False,
@@ -48,17 +48,17 @@ def lakehouse_dag():
         wait_for_completion=True,
     )
 
-    # # 2. Tầng Silver: Cleaning & Schema Enforcement
-    # silver_task = GlueJobOperator(
-    #     task_id="silver_layer_job",
-    #     job_name="linkedin_transform_silver",
-    #     script_location=f"s3://{GLUE_BUCKET}/scripts/transform_to_silver.py",
-    #     iam_role_name=GLUE_IAM_ROLE,
-    #     create_job_kwargs=GLUE_CONF,
-    #     region_name=REGION,
-    #     aws_conn_id="aws_default",
-    #     wait_for_completion=True,
-    # )
+    # 2. Tầng Silver: Cleaning & Schema Enforcement
+    silver_task = GlueJobOperator(
+        task_id="silver_layer_job",
+        job_name="linkedin_transform_silver",
+        script_location=f"s3://{GLUE_BUCKET}/scripts/transform_to_silver.py",
+        iam_role_name=GLUE_IAM_ROLE,
+        create_job_kwargs=GLUE_CONF,
+        region_name=REGION,
+        aws_conn_id="aws_default",
+        wait_for_completion=True,
+    )
 
     # # 3. Tầng Gold: Aggregation cho Dashboard
     # gold_task = GlueJobOperator(
@@ -74,7 +74,7 @@ def lakehouse_dag():
 
     # # Thiết lập chuỗi thực thi: Bronze xong mới đến Silver, Silver xong mới đến Gold
     # bronze_task >> silver_task >> gold_task
-    bronze_task
+    bronze_task >> silver_task
 
 
 lakehouse_dag()
