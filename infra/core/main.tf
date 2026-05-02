@@ -142,7 +142,6 @@ data "aws_ami" "ubuntu" {
     owners = ["099720109477"] # Canonical
 }
 
-# --- 1. TẠO QUYỀN CHO EC2 (BẮT BUỘC ĐỂ FIX LỖI NOCREDENTIALS) ---
 resource "aws_iam_role" "ec2_role" {
   name = "ec2_airflow_ecr_role"
 
@@ -155,7 +154,42 @@ resource "aws_iam_role" "ec2_role" {
     }]
   })
 }
+resource "aws_iam_policy" "airflow_glue_policy" {
+  name        = "AirflowGlueAccessPolicy"
+  description = "Cho phep Airflow tren EC2 quan ly Glue Jobs"
 
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "glue:GetJob",
+          "glue:CreateJob",
+          "glue:UpdateJob",
+          "glue:StartJobRun",
+          "glue:GetJobRun",
+          "glue:GetJobRuns",
+          "glue:BatchStopJobRun"
+        ]
+        Resource = "*" # Co the giới hạn theo ARN cua job neu muon bao mat hon
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:PassRole"
+        ]
+        Resource = "*" # Cho phep EC2 gan Role nay cho Glue Job
+      }
+    ]
+  })
+}
+
+# 2. Gan Policy nay vao EC2 Role hien tai
+resource "aws_iam_role_policy_attachment" "attach_glue_access" {
+  role       = aws_iam_role.ec2_role.name # Ten role ec2_airflow_ecr_role cua ban
+  policy_arn = aws_iam_policy.airflow_glue_policy.arn
+}
 resource "aws_iam_role_policy_attachment" "ecr_read" {
   role       = aws_iam_role.ec2_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
