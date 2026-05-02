@@ -110,6 +110,58 @@ resource "aws_iam_role_policy_attachment" "glue_service_role_attach" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
 }
 
+# --- Allow Airflow EC2 role to call Glue API ---
+# This policy allows the Airflow EC2 instance to create/run Glue jobs using the Glue IAM role
+resource "aws_iam_policy" "airflow_glue_policy" {
+  name        = "airflow_glue_execution_policy"
+  description = "Allow Airflow to create and run Glue jobs"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "glue:CreateJob",
+          "glue:UpdateJob",
+          "glue:StartJobRun",
+          "glue:GetJobRun",
+          "glue:GetJob",
+          "glue:ListJobs"
+        ]
+        Resource = "*"
+      },
+      {
+        # Allow Airflow to pass the Glue role to Glue service
+        Effect = "Allow"
+        Action = [
+          "iam:GetRole",
+          "iam:PassRole"
+        ]
+        Resource = aws_iam_role.glue_iam_role.arn
+      },
+      {
+        # Allow Airflow to read scripts from S3
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "arn:aws:s3:::alex-lakehouse-storage-2026",
+          "arn:aws:s3:::alex-lakehouse-storage-2026/*"
+        ]
+      }
+    ]
+  })
+}
+
+# Attach the policy to the Airflow EC2 role
+resource "aws_iam_role_policy_attachment" "airflow_glue_attach" {
+  role       = var.airflow_ec2_role_name
+  policy_arn = aws_iam_policy.airflow_glue_policy.arn
+}
+
 
 resource "aws_cloudwatch_event_rule" "every_hour" {
   name                = "alex-trigger-every-hour"

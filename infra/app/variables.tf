@@ -36,3 +36,9 @@ variable "s3_location_gold_glue_database" {
   type        = string
   default     = "s3://alex-lakehouse-storage-2026/gold/"  
 }
+
+variable "airflow_ec2_role_name" {
+  type        = string
+  default     = "ec2_airflow_ecr_role"
+  description = "Name of the IAM role for Airflow EC2 instance"
+}
