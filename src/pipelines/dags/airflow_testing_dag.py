@@ -61,20 +61,20 @@ def lakehouse_dag():
     )
 
     # # 3. Tầng Gold: Aggregation cho Dashboard
-    # gold_task = GlueJobOperator(
-    #     task_id="gold_layer_job",
-    #     job_name="linkedin_transform_gold",
-    #     script_location=f"s3://{GLUE_BUCKET}/scripts/transform_to_gold.py",
-    #     iam_role_name=GLUE_IAM_ROLE,
-    #     create_job_kwargs=GLUE_CONF,
-    #     region_name=REGION,
-    #     aws_conn_id="aws_default",
-    #     wait_for_completion=True,
-    # )
+    gold_task = GlueJobOperator(
+        task_id="gold_layer_job",
+        job_name="linkedin_transform_gold",
+        script_location=f"s3://{GLUE_BUCKET}/scripts/transform_to_gold.py",
+        iam_role_name=GLUE_IAM_ROLE,
+        create_job_kwargs=GLUE_CONF,
+        region_name=REGION,
+        aws_conn_id="aws_default",
+        wait_for_completion=True,
+    )
 
     # # Thiết lập chuỗi thực thi: Bronze xong mới đến Silver, Silver xong mới đến Gold
     # bronze_task >> silver_task >> gold_task
-    bronze_task >> silver_task
+    bronze_task >> silver_task >> gold_task
 
 
 lakehouse_dag()
