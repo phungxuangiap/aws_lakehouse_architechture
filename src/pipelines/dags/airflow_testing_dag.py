@@ -28,7 +28,7 @@ GLUE_CONF = {
 }
 
 @dag(
-    dag_id='linkedin_lakehouse_pipeline_v1',
+    dag_id='linkedin_lakehouse_pipeline_v2',
     schedule=None,
     start_date=datetime(2026, 1, 1),
     catchup=False,
@@ -75,6 +75,6 @@ def lakehouse_dag():
     # # Thiết lập chuỗi thực thi: Bronze xong mới đến Silver, Silver xong mới đến Gold
     # bronze_task >> silver_task >> gold_task
     bronze_task
-    
+
 
 lakehouse_dag()

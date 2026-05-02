@@ -42,8 +42,9 @@ def write_delta_tables(table: str, database: str, df: DataFrame):
     logger.info(f"Table {table} successfully loaded to {database} database!!")
 
 def main():
-    games_info_path = "s3://landing/games/*.json"
-    players_activity_path = "s3://landing/players/*.json"
+    bucket = "alex-lakehouse-storage-2026"
+    games_info_path = f"s3://{bucket}/landing/games/*.json"
+    players_activity_path = f"s3://{bucket}/landing/players/*.json"
 
     games_df = read_raw_data(games_info_path)
     players_df = read_raw_data(players_activity_path)
